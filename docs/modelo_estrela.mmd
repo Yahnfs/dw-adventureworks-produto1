@@ -1,0 +1,164 @@
+%% ---------------------------------------------------------------------------
+%% Modelo Estrela - Data Warehouse AdventureWorks
+%% Duas tabelas fato compartilhando dimensoes conformadas.
+%% Renderizavel diretamente no GitHub (bloco ```mermaid) ou em mermaid.live
+%% ---------------------------------------------------------------------------
+erDiagram
+    DIM_TEMPO ||--o{ FATO_VENDAS  : "data do pedido / vencimento / envio"
+    DIM_TEMPO ||--o{ FATO_COMPRAS : "data do pedido / previsto / recebimento"
+    DIM_PRODUTO ||--o{ FATO_VENDAS  : "produto vendido"
+    DIM_PRODUTO ||--o{ FATO_COMPRAS : "produto comprado"
+    DIM_FUNCIONARIO ||--o{ FATO_VENDAS  : "papel vendedor"
+    DIM_FUNCIONARIO ||--o{ FATO_COMPRAS : "papel comprador"
+    DIM_METODO_ENVIO ||--o{ FATO_VENDAS  : "transportadora"
+    DIM_METODO_ENVIO ||--o{ FATO_COMPRAS : "transportadora"
+    DIM_STATUS_PEDIDO ||--o{ FATO_VENDAS  : "situacao"
+    DIM_STATUS_PEDIDO ||--o{ FATO_COMPRAS : "situacao"
+    DIM_CLIENTE ||--o{ FATO_VENDAS : "comprador"
+    DIM_TERRITORIO ||--o{ FATO_VENDAS : "territorio comercial"
+    DIM_GEOGRAFIA ||--o{ FATO_VENDAS : "local de entrega"
+    DIM_PROMOCAO ||--o{ FATO_VENDAS : "oferta aplicada"
+    DIM_CANAL_VENDA ||--o{ FATO_VENDAS : "canal"
+    DIM_FORNECEDOR ||--o{ FATO_COMPRAS : "fornecedor"
+
+    FATO_VENDAS {
+        bigint  sk_fato_vendas PK
+        int     sk_tempo_pedido FK
+        int     sk_tempo_vencimento FK
+        int     sk_tempo_envio FK
+        bigint  sk_produto FK
+        bigint  sk_cliente FK
+        bigint  sk_vendedor FK
+        bigint  sk_territorio FK
+        bigint  sk_promocao FK
+        bigint  sk_geografia_entrega FK
+        bigint  sk_metodo_envio FK
+        int     sk_canal FK
+        int     sk_status FK
+        int     id_item_venda DD "chave de negocio"
+        varchar nr_pedido DD
+        int     qt_vendida "metrica"
+        numeric vl_bruto "metrica"
+        numeric vl_desconto "metrica"
+        numeric vl_liquido "metrica"
+        numeric vl_custo_total "metrica"
+        numeric vl_margem_bruta "metrica"
+        numeric vl_frete_rateado "metrica"
+        int     qt_dias_entrega "metrica"
+        boolean fl_entrega_atrasada "metrica"
+    }
+
+    FATO_COMPRAS {
+        bigint  sk_fato_compras PK
+        int     sk_tempo_pedido FK
+        int     sk_tempo_previsto FK
+        int     sk_tempo_recebimento FK
+        bigint  sk_produto FK
+        bigint  sk_fornecedor FK
+        bigint  sk_comprador FK
+        bigint  sk_metodo_envio FK
+        int     sk_status FK
+        int     id_item_compra DD "chave de negocio"
+        int     qt_pedida "metrica"
+        numeric qt_recebida "metrica"
+        numeric qt_rejeitada "metrica"
+        numeric vl_total_linha "metrica"
+        numeric vl_frete_rateado "metrica"
+        int     qt_dias_recebimento "metrica"
+        boolean fl_recebimento_atrasado "metrica"
+    }
+
+    DIM_TEMPO {
+        int     sk_tempo PK "AAAAMMDD"
+        date    dt_data
+        int     nr_ano
+        int     nr_trimestre
+        int     nr_mes
+        varchar nm_mes
+        varchar ds_ano_mes
+        boolean fl_fim_semana
+    }
+
+    DIM_PRODUTO {
+        bigint  sk_produto PK
+        int     id_produto "chave natural"
+        varchar nm_produto
+        varchar nm_categoria
+        varchar nm_subcategoria
+        numeric vl_custo_padrao
+        numeric vl_preco_lista
+        int     nr_versao "SCD2"
+        date    dt_inicio_validade "SCD2"
+        date    dt_fim_validade "SCD2"
+        boolean fl_corrente "SCD2"
+    }
+
+    DIM_CLIENTE {
+        bigint  sk_cliente PK
+        int     id_cliente
+        varchar nm_cliente
+        varchar tp_cliente
+        varchar ds_email
+    }
+
+    DIM_FUNCIONARIO {
+        bigint  sk_funcionario PK
+        int     id_funcionario
+        varchar nm_funcionario
+        varchar ds_cargo
+        boolean fl_vendedor
+        numeric vl_cota_vendas
+    }
+
+    DIM_TERRITORIO {
+        bigint  sk_territorio PK
+        int     id_territorio
+        varchar nm_territorio
+        varchar nm_grupo
+        varchar nm_pais
+    }
+
+    DIM_GEOGRAFIA {
+        bigint  sk_geografia PK
+        int     id_endereco
+        varchar ds_cidade
+        varchar nm_estado
+        varchar nm_pais
+        varchar nm_regiao
+    }
+
+    DIM_PROMOCAO {
+        bigint  sk_promocao PK
+        int     id_promocao
+        varchar ds_promocao
+        varchar tp_promocao
+        numeric pc_desconto
+    }
+
+    DIM_FORNECEDOR {
+        bigint  sk_fornecedor PK
+        int     id_fornecedor
+        varchar nm_fornecedor
+        varchar ds_nivel_credito
+        boolean fl_preferencial
+    }
+
+    DIM_METODO_ENVIO {
+        bigint  sk_metodo_envio PK
+        int     id_metodo_envio
+        varchar nm_metodo_envio
+        numeric vl_taxa_base
+    }
+
+    DIM_CANAL_VENDA {
+        int     sk_canal PK
+        varchar cd_canal
+        varchar nm_canal
+    }
+
+    DIM_STATUS_PEDIDO {
+        int      sk_status PK
+        smallint cd_status
+        varchar  ds_dominio "VENDA ou COMPRA"
+        varchar  nm_status
+    }

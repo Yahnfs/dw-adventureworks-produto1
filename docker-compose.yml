@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------------------
+# Data Warehouse AdventureWorks - Ambiente PostgreSQL 16
+#
+# Sobe um PostgreSQL isolado e descartavel para hospedar o Data Warehouse.
+# Subir:    docker compose up -d
+# Status:   docker compose ps
+# Logs:     docker compose logs -f postgres
+# Parar:    docker compose stop          (mantem os dados)
+# Destruir: docker compose down -v       (APAGA os dados do volume)
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: dw_adventureworks_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dw_user
+      POSTGRES_PASSWORD: dw_pass
+      POSTGRES_DB: dw_adventureworks
+      # Locale e collation deterministicos, para que ORDER BY / agregacoes
+      # produzam o mesmo resultado em qualquer maquina do grupo.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: America/Sao_Paulo
+    ports:
+      # host:container - a porta 5432 do host aponta para o Postgres do container
+      - "5432:5432"
+    volumes:
+      # Volume nomeado: os dados sobrevivem a "docker compose stop/up",
+      # e sao apagados apenas com "docker compose down -v".
+      - dw_pgdata:/var/lib/postgresql/data
+      # Scripts do diretorio abaixo rodam AUTOMATICAMENTE, em ordem alfabetica,
+      # apenas na PRIMEIRA inicializacao (quando o volume esta vazio).
+      - ./sql/01_ddl_dw.sql:/docker-entrypoint-initdb.d/01_ddl_dw.sql:ro
+      - ./sql/02_comentarios.sql:/docker-entrypoint-initdb.d/02_comentarios.sql:ro
+      # Demais scripts ficam acessiveis dentro do container em /sql, para
+      # execucao manual: docker exec -it dw_adventureworks_pg \
+      #     psql -U dw_user -d dw_adventureworks -f /sql/03_kpis.sql
+      - ./sql:/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dw_user -d dw_adventureworks"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Interface web opcional para inspecionar o DW sem instalar nada no host.
+  # Acesse http://localhost:8080  (Sistema: PostgreSQL | Servidor: postgres)
+  adminer:
+    image: adminer:4
+    container_name: dw_adventureworks_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  dw_pgdata:
+    name: dw_adventureworks_pgdata

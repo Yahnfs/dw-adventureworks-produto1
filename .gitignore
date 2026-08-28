@@ -1,0 +1,23 @@
+# Credenciais
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Logs e artefatos de execucao
+logs/*.log
+*.log
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Backups do SQL Server
+*.bak
