@@ -204,7 +204,8 @@ def _sombrear(celula, cor_hex: str):
 def quadro(doc: Document, titulo: str, cabecalho: list[str],
            linhas: list[list[str]], fonte: str, tamanho: float = 9,
            larguras: list[float] | None = None):
-    legenda_superior(doc, titulo)
+    if titulo:
+        legenda_superior(doc, titulo)
 
     tabela = doc.add_table(rows=1, cols=len(cabecalho))
     tabela.style = "Table Grid"
@@ -235,7 +236,8 @@ def quadro(doc: Document, titulo: str, cabecalho: list[str],
             for indice, largura in enumerate(larguras):
                 linha.cells[indice].width = Cm(largura)
 
-    legenda_fonte(doc, fonte)
+    if fonte:
+        legenda_fonte(doc, fonte)
 
 
 def referencia(doc: Document, texto_negrito_partes: list[tuple[str, bool]]):
@@ -245,6 +247,85 @@ def referencia(doc: Document, texto_negrito_partes: list[tuple[str, bool]]):
     paragrafo.paragraph_format.space_after = Pt(12)
     for texto, negrito in texto_negrito_partes:
         _fonte(paragrafo.add_run(texto), 12, negrito=negrito)
+
+
+def apendice(doc: Document, letra: str, texto: str):
+    """Titulo de apendice, sem indicativo numerico, iniciando em nova pagina."""
+    doc.add_page_break()
+    paragrafo = doc.add_paragraph()
+    paragrafo.paragraph_format.space_after = Pt(12)
+    paragrafo.paragraph_format.keep_with_next = True
+    _fonte(paragrafo.add_run(f"APENDICE {letra} - {texto}".upper()
+                             .replace("APENDICE", "APÊNDICE")), 12, negrito=True)
+
+
+def _ler_scripts_kpi() -> list[str]:
+    """Le sql/03_kpis.sql e remove as linhas decorativas dos cabecalhos."""
+    arquivo = DIR_DOCS.parent / "sql" / "03_kpis.sql"
+    if not arquivo.exists():
+        return []
+    linhas: list[str] = []
+    for linha in arquivo.read_text(encoding="utf-8").splitlines():
+        despida = linha.rstrip()
+        # Descarta as reguas de "#" e "=" usadas como moldura no arquivo fonte.
+        if set(despida.replace("-", "").replace(" ", "")) <= {"#", "="} and despida:
+            continue
+        linhas.append(despida)
+    # Remove o cabecalho do arquivo (ate a primeira consulta) e linhas vazias
+    # consecutivas, que desperdicariam espaco no documento impresso.
+    enxuto: list[str] = []
+    vazia_anterior = False
+    for linha in linhas:
+        vazia = not linha.strip()
+        if vazia and vazia_anterior:
+            continue
+        enxuto.append(linha)
+        vazia_anterior = vazia
+    return enxuto
+
+
+def _ler_dicionario() -> list[tuple[str, str, list[list[str]]]]:
+    """Extrai (tabela, descricao, colunas) do dicionario em Markdown."""
+    arquivo = DIR_DOCS / "dicionario_dados.md"
+    if not arquivo.exists():
+        return []
+
+    tabelas: list[tuple[str, str, list[list[str]]]] = []
+    nome = descricao = None
+    colunas: list[list[str]] = []
+    cabecalho_visto = False
+
+    for linha in arquivo.read_text(encoding="utf-8").splitlines():
+        if linha.startswith("### "):
+            if nome:
+                tabelas.append((nome, descricao or "", colunas))
+            nome = linha[4:].strip().strip("`")
+            descricao, colunas, cabecalho_visto = None, [], False
+        elif nome and linha.startswith("|"):
+            # O pipe pode aparecer dentro de uma descricao, escapado no
+            # Markdown como barra-invertida + pipe. Protege-se essa
+            # ocorrencia com um marcador antes de dividir a linha.
+            escapado = chr(92) + "|"
+            marcador = "@@PIPE@@"
+            bruto = linha.strip().strip("|").replace(escapado, marcador)
+            celulas = [c.strip().replace(marcador, "|")
+                       for c in bruto.split("|")]
+            if not cabecalho_visto:
+                cabecalho_visto = True          # linha de titulo da tabela
+                continue
+            if set("".join(celulas)) <= {"-"}:  # linha separadora
+                continue
+            celulas = [c.strip("`") for c in celulas][:5]
+            celulas += [""] * (5 - len(celulas))
+            colunas.append(celulas)
+        elif nome and linha.strip() and not linha.startswith(("|", "**", ">")):
+            if descricao is None:
+                descricao = linha.strip()
+
+    if nome:
+        tabelas.append((nome, descricao or "", colunas))
+    # Apenas as tabelas do modelo dimensional e do controle da ETL.
+    return [t for t in tabelas if t[0].startswith(("dw.", "meta."))]
 
 
 # ---------------------------------------------------------------------------
@@ -1267,6 +1348,48 @@ def montar() -> Path:
         ("Data warehouse systems", True),
         (": design and implementation. 2. ed. Berlin: Springer, 2022.", False),
     ])
+
+    # -------------------------------------------------- APENDICES
+    apendice(doc, "A", "Scripts SQL dos indicadores")
+
+    par(doc,
+        "Reproduzem-se a seguir, na integra, as consultas que implementam os "
+        "dez indicadores apresentados no Quadro 2. Todas operam exclusivamente "
+        "sobre o modelo dimensional, sem qualquer acesso ao sistema "
+        "transacional de origem.", recuo=False)
+
+    linhas_sql = _ler_scripts_kpi()
+    if linhas_sql:
+        codigo(doc, linhas_sql)
+
+    apendice(doc, "B", "Dicionário de dados do Data Warehouse")
+
+    par(doc,
+        "O dicionário abaixo é extraído do catálogo do próprio PostgreSQL "
+        "(pg_class, pg_attribute e pg_description), o que assegura sua "
+        "correspondência exata com a estrutura implantada. A coluna Chave "
+        "identifica chaves primárias (PK) e estrangeiras (FK), com a "
+        "respectiva tabela referenciada.", recuo=False)
+
+    for nome_tabela, descricao_tabela, colunas in _ler_dicionario():
+        subtitulo = doc.add_paragraph()
+        subtitulo.paragraph_format.space_before = Pt(12)
+        subtitulo.paragraph_format.space_after = Pt(3)
+        subtitulo.paragraph_format.keep_with_next = True
+        _fonte(subtitulo.add_run(nome_tabela), 11, negrito=True)
+
+        if descricao_tabela:
+            texto = doc.add_paragraph()
+            texto.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            texto.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+            texto.paragraph_format.space_after = Pt(3)
+            texto.paragraph_format.keep_with_next = True
+            _fonte(texto.add_run(descricao_tabela), 10, italico=True)
+
+        quadro(doc, "", ["Coluna", "Tipo", "Nulo", "Chave", "Descrição"],
+               colunas,
+               "",
+               tamanho=7.5, larguras=[3.6, 2.6, 1.1, 3.0, 5.2])
 
     doc.save(SAIDA)
     return SAIDA
