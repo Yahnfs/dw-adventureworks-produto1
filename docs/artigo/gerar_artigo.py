@@ -344,7 +344,7 @@ def montar() -> Path:
     )
 
     autoria(doc, [
-        "[Nome completo do(a) autor(a)]*",
+        "Yahn de Freitas Santos*",
         "[Nome completo do(a) coautor(a)]**",
         "[Nome completo do(a) professor(a) orientador(a)]***",
     ])
@@ -1220,7 +1220,7 @@ def montar() -> Path:
     paragrafo.paragraph_format.space_before = Pt(6)
     paragrafo.paragraph_format.space_after = Pt(6)
     _fonte(paragrafo.add_run(
-        "https://github.com/[usuario]/dw-adventureworks-produto1"), 12,
+        "https://github.com/Yahnfs/dw-adventureworks-produto1"), 12,
         negrito=True)
 
     par(doc,
