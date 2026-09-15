@@ -19,5 +19,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Arquivos temporarios do Microsoft Office
+~$*
+
 # Backups do SQL Server
 *.bak
